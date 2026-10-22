@@ -4,11 +4,12 @@ Application mobile de recherche, consultation et publication d’annonces immobi
 
 ## Équipe
 
-| Nom | Rôle |
+| Nom | 
 |---|---|
-| [Nom 1] | [Rôle] |
-| [Nom 2] | [Rôle] |
-| [Nom 3] | [Rôle] |
+| [Mounawer] | 
+| [Yassine] | 
+| [Yassmine] | 
+| [Tayssier] | 
 
 ## Prérequis
 
