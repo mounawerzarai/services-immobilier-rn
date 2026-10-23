@@ -1,0 +1,89 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // Participants of a conversation, read from its document.
+    function participantsOf(conversationId) {
+      return get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+    }
+
+    // ---------- users ----------
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create, update: if isOwner(uid);
+      allow delete: if false;
+
+      // ---------- favorites ----------
+      match /favorites/{listingId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // ---------- listings ----------
+    match /listings/{listingId} {
+      // Visitors can browse listings without an account.
+      allow read: if true;
+
+      allow create: if signedIn()
+        && request.resource.data.sellerId == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.price is number
+        && request.resource.data.price > 0
+        && request.resource.data.transactionType in ['sale', 'rent']
+        && request.resource.data.status == 'available'
+        && request.resource.data.latitude is number
+        && request.resource.data.longitude is number
+        && request.resource.data.photos is list
+        && request.resource.data.photos.size() >= 1
+        && request.resource.data.photos.size() <= 8;
+
+      allow update: if isOwner(resource.data.sellerId)
+        && request.resource.data.sellerId == resource.data.sellerId
+        && request.resource.data.status in ['available', 'sold', 'rented'];
+
+      allow delete: if isOwner(resource.data.sellerId);
+    }
+
+    // ---------- conversations ----------
+    match /conversations/{conversationId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.participants;
+
+      allow create: if signedIn()
+        && request.resource.data.participants.size() == 2
+        && request.auth.uid in request.resource.data.participants;
+
+      // lastMessage and updatedAt change; the participants never do.
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.participants
+        && request.resource.data.participants == resource.data.participants;
+
+      allow delete: if false;
+
+      // ---------- messages ----------
+      match /messages/{messageId} {
+        allow read: if signedIn()
+          && request.auth.uid in participantsOf(conversationId);
+
+        // The client must write sentAt with the server timestamp.
+        allow create: if signedIn()
+          && request.auth.uid in participantsOf(conversationId)
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.sentAt == request.time;
+
+        allow update, delete: if false;
+      }
+    }
+  }
+}
