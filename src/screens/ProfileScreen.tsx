@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -91,11 +92,17 @@ export default function ProfileScreen() {
     }
   };
 
-  const onLogout = () =>
+  const onLogout = () => {
+    // Alert.alert avec boutons ne fonctionne pas sur le web : on utilise confirm().
+    if (Platform.OS === 'web') {
+      if (window.confirm('Voulez-vous vous déconnecter ?')) logout();
+      return;
+    }
     Alert.alert('Déconnexion', 'Voulez-vous vous déconnecter ?', [
       { text: 'Annuler', style: 'cancel' },
       { text: 'Se déconnecter', style: 'destructive', onPress: () => logout() },
     ]);
+  };
 
   const header = (
     <View>
