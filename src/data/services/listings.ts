@@ -2,6 +2,8 @@ import {
   DocumentSnapshot,
   QueryConstraint,
   collection,
+  doc,
+  getDoc,
   getDocs,
   limit,
   orderBy,
@@ -11,6 +13,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../core/firebase';
 import { Listing } from '../models/Listing';
+import { AppUser } from '../models/User';
+import { getUser } from './users';
 
 export const PAGE_SIZE = 20;
 
@@ -54,4 +58,19 @@ export async function getAvailableListingsPage(
     cursor: snap.docs[snap.docs.length - 1] ?? cursor ?? null,
     hasMore: snap.docs.length === PAGE_SIZE,
   };
+}
+
+export interface ListingDetail {
+  listing: Listing;
+  seller: AppUser | null;
+}
+
+// Une annonce et son vendeur (nom et téléphone lus dans users/{sellerId}).
+// Renvoie null si l’annonce n’existe plus.
+export async function getListingDetail(id: string): Promise<ListingDetail | null> {
+  const snap = await getDoc(doc(db, 'listings', id));
+  if (!snap.exists()) return null;
+  const listing = toListing(snap);
+  const seller = await getUser(listing.sellerId).catch(() => null);
+  return { listing, seller };
 }

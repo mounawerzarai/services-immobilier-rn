@@ -1,4 +1,4 @@
-import { Listing, TransactionType } from '../../data/models/Listing';
+import { Listing, ListingStatus, TransactionType } from '../../data/models/Listing';
 
 export const transactionLabel = (t: TransactionType) => (t === 'rent' ? 'Location' : 'Vente');
 
@@ -14,3 +14,16 @@ export function formatDetails(l: Listing) {
   if (l.rooms) parts.push(`${l.rooms} pièce${l.rooms > 1 ? 's' : ''}`);
   return parts.join(' · ');
 }
+
+const propertyTypes: Record<string, string> = {
+  apartment: 'Appartement',
+  house: 'Maison',
+};
+
+export const propertyTypeLabel = (t?: string) => (t ? (propertyTypes[t] ?? t) : '');
+
+export const statusLabel: Record<ListingStatus, string> = {
+  available: 'Disponible',
+  sold: 'Vendu',
+  rented: 'Loué',
+};
