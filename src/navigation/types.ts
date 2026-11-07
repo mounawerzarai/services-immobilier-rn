@@ -1,7 +1,9 @@
+
 export type RootStackParamList = {
   Tabs: undefined;
   Login: undefined;
-  Publish: undefined;
+  Publish: { id?: string } | undefined;
+  MyListings: undefined;
   ListingDetail: { id: string };
   Chat: { id: string };
 };

@@ -35,7 +35,7 @@ export default function AuthScreen() {
       else await register(name.trim(), email, password);
       // Redirection automatique via onAuthStateChanged (App.tsx)
     } catch (e: any) {
-      setError(authErrorMessage(e?.code ?? '') + ' [' + (e?.code ?? 'sans code') + ']');
+      setError(authErrorMessage(e?.code ?? ''));
     } finally {
       setLoading(false);
     }
