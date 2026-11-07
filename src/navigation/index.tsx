@@ -1,3 +1,5 @@
+
+import MyListingsScreen from '../screens/MyListingsScreen';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -36,7 +38,13 @@ function Tabs() {
         tabBarInactiveTintColor: colors.muted,
         tabBarIcon: ({ focused, color, size }) => {
           const [on, off] = icons[route.name];
-          return <Ionicons name={(focused ? on : off) as any} size={size} color={color} />;
+          return (
+            <Ionicons
+              name={(focused ? on : off) as any}
+              size={size}
+              color={color}
+            />
+          );
         },
       })}
     >
@@ -51,18 +59,48 @@ function Tabs() {
 
 const navTheme = {
   ...DefaultTheme,
-  colors: { ...DefaultTheme.colors, primary: colors.primary, background: colors.background },
+  colors: {
+    ...DefaultTheme.colors,
+    primary: colors.primary,
+    background: colors.background,
+  },
 };
 
 export default function RootNavigator() {
   return (
     <NavigationContainer theme={navTheme}>
       <Stack.Navigator>
-        <Stack.Screen name="Tabs" component={Tabs} options={{ headerShown: false }} />
-        <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Connexion' }} />
-        <Stack.Screen name="Publish" component={PublishScreen} options={{ title: 'Publier une annonce' }} />
-        <Stack.Screen name="ListingDetail" component={ListingDetailScreen} options={{ title: 'Détail' }} />
-        <Stack.Screen name="Chat" component={ChatScreen} options={{ title: 'Conversation' }} />
+        <Stack.Screen
+          name="Tabs"
+          component={Tabs}
+          options={{ headerShown: false }}
+        />
+
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{ title: 'Connexion' }}
+        />
+
+        <Stack.Screen
+          name="Publish"
+          component={PublishScreen}
+          options={{ title: 'Publier une annonce' }}
+        />
+
+        <Stack.Screen name="MyListings" component={MyListingsScreen} options={{ title: 'Mes annonces' }} />
+
+        <Stack.Screen
+          name="ListingDetail"
+          component={ListingDetailScreen}
+          options={{ title: 'Détail' }}
+        />
+
+        <Stack.Screen
+          name="Chat"
+          component={ChatScreen}
+          options={{ title: 'Conversation' }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
