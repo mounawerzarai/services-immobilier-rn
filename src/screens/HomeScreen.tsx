@@ -71,7 +71,14 @@ export default function HomeScreen() {
     }
   };
 
-  const header = <Text style={styles.title}>Annonces</Text>;
+  const header = (
+    <View style={styles.headerRow}>
+      <Text style={styles.title}>Annonces</Text>
+      <Pressable onPress={() => navigation.navigate('MyListings')} hitSlop={8}>
+        <Text style={styles.link}>Mes annonces</Text>
+      </Pressable>
+    </View>
+  );
 
   const empty = loading ? (
     <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />
@@ -126,7 +133,14 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 16 },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  title: { fontSize: 24, fontWeight: '700', color: colors.text },
+  link: { color: colors.primary, fontWeight: '700', fontSize: 15 },
   center: { alignItems: 'center', gap: 12, paddingVertical: 40 },
   message: { color: colors.muted, textAlign: 'center' },
   buttonOutline: {
