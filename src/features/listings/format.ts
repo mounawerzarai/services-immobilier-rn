@@ -18,6 +18,8 @@ export function formatDetails(l: Listing) {
 const propertyTypes: Record<string, string> = {
   apartment: 'Appartement',
   house: 'Maison',
+  land: 'Terrain',
+  commercial: 'Local commercial',
 };
 
 export const propertyTypeLabel = (t?: string) => (t ? (propertyTypes[t] ?? t) : '');
