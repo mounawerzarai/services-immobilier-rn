@@ -74,3 +74,21 @@ export async function getListingDetail(id: string): Promise<ListingDetail | null
   const seller = await getUser(listing.sellerId).catch(() => null);
   return { listing, seller };
 }
+
+// Réserve d’annonces pour la recherche texte : les 200 plus récentes disponibles.
+// Firestore n’a pas de recherche plein texte (plan Spark, pas de service externe) :
+// on filtre côté appli avec filterListings (features/search/searchListings.ts).
+// Utilise l’index status + createdAt déjà déployé.
+export const SEARCH_POOL_SIZE = 200;
+
+export async function getSearchPool(): Promise<Listing[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'listings'),
+      where('status', '==', 'available'),
+      orderBy('createdAt', 'desc'),
+      limit(SEARCH_POOL_SIZE),
+    ),
+  );
+  return snap.docs.map(toListing);
+}
