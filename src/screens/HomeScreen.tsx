@@ -18,6 +18,8 @@ import { RootStackParamList } from '../navigation/types';
 import { Listing } from '../data/models/Listing';
 import { getAvailableListingsPage, getSearchPool } from '../data/services/listings';
 import ListingCard from '../features/listings/ListingCard';
+import FilterSheet from '../features/search/FilterSheet';
+import { EMPTY_FILTERS, Filters, applyFilters, countActiveFilters } from '../features/search/filters';
 import { filterListings } from '../features/search/searchListings';
 
 export default function HomeScreen() {
@@ -32,13 +34,18 @@ export default function HomeScreen() {
   const [hasMore, setHasMore] = useState(false);
   const cursor = useRef<DocumentSnapshot | null>(null);
 
-  // Recherche texte : on charge une réserve d’annonces une seule fois (à la première
-  // lettre tapée), puis on filtre côté appli à chaque frappe.
+  // Recherche texte (T5.1) et filtres (T5.2) : on charge une réserve d’annonces une seule
+  // fois (dès qu’on tape une lettre ou qu’on applique un filtre), puis on filtre côté appli.
   const [term, setTerm] = useState('');
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [pool, setPool] = useState<Listing[] | null>(null);
   const [poolLoading, setPoolLoading] = useState(false);
   const [poolError, setPoolError] = useState(false);
+
+  const activeFilters = countActiveFilters(filters);
   const searching = term.trim().length > 0;
+  const filtering = searching || activeFilters > 0; // on affiche la liste filtrée, sans pagination
 
   const loadPool = () => {
     setPoolLoading(true);
@@ -49,10 +56,22 @@ export default function HomeScreen() {
       .finally(() => setPoolLoading(false));
   };
 
+  const ensurePool = () => {
+    if (pool === null && !poolLoading && !poolError) loadPool();
+  };
+
   const onChangeTerm = (text: string) => {
     setTerm(text);
-    if (text.trim() && pool === null && !poolLoading && !poolError) loadPool();
+    if (text.trim()) ensurePool();
   };
+
+  const onApplyFilters = (next: Filters) => {
+    setFilters(next);
+    setSheetOpen(false);
+    if (countActiveFilters(next) > 0) ensurePool();
+  };
+
+  const clearFilters = () => setFilters(EMPTY_FILTERS);
 
   // Premier chargement (les états « chargement » sont déjà à true au départ).
   useEffect(() => {
@@ -71,7 +90,7 @@ export default function HomeScreen() {
     setError(null);
     if (mode === 'refresh') setRefreshing(true);
     else setLoading(true);
-    if (searching) loadPool(); // rafraîchit aussi les résultats de recherche
+    if (filtering) loadPool(); // rafraîchit aussi les résultats filtrés
     else setPool(null);
     getAvailableListingsPage(null)
       .then((page) => {
@@ -87,7 +106,7 @@ export default function HomeScreen() {
   };
 
   const loadMore = async () => {
-    if (searching || !hasMore || loadingMore || loading || refreshing || error) return;
+    if (filtering || !hasMore || loadingMore || loading || refreshing || error) return;
     setLoadingMore(true);
     try {
       const page = await getAvailableListingsPage(cursor.current);
@@ -104,7 +123,7 @@ export default function HomeScreen() {
     }
   };
 
-  const data = searching ? filterListings(pool ?? [], term) : items;
+  const data = filtering ? applyFilters(filterListings(pool ?? [], term), filters) : items;
 
   const header = (
     <View>
@@ -114,25 +133,43 @@ export default function HomeScreen() {
           <Text style={styles.link}>Mes annonces</Text>
         </Pressable>
       </View>
-      <TextInput
-        style={styles.search}
-        value={term}
-        onChangeText={onChangeTerm}
-        placeholder="Rechercher (ville, titre, type…)"
-        placeholderTextColor={colors.muted}
-        returnKeyType="search"
-        autoCorrect={false}
-        clearButtonMode="while-editing"
-      />
-      {searching && pool !== null ? (
-        <Text style={styles.count}>
-          {data.length} résultat{data.length > 1 ? 's' : ''}
-        </Text>
+      <View style={styles.searchRow}>
+        <TextInput
+          style={styles.search}
+          value={term}
+          onChangeText={onChangeTerm}
+          placeholder="Rechercher (ville, titre, type…)"
+          placeholderTextColor={colors.muted}
+          returnKeyType="search"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+        />
+        <Pressable
+          accessibilityRole="button"
+          style={[styles.filterButton, activeFilters > 0 && styles.filterButtonOn]}
+          onPress={() => setSheetOpen(true)}
+        >
+          <Text style={[styles.filterText, activeFilters > 0 && styles.filterTextOn]}>
+            Filtres{activeFilters > 0 ? ` (${activeFilters})` : ''}
+          </Text>
+        </Pressable>
+      </View>
+      {filtering && pool !== null ? (
+        <View style={styles.countRow}>
+          <Text style={styles.count}>
+            {data.length} résultat{data.length > 1 ? 's' : ''}
+          </Text>
+          {activeFilters > 0 ? (
+            <Pressable onPress={clearFilters} hitSlop={8}>
+              <Text style={styles.link}>Effacer les filtres</Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
     </View>
   );
 
-  const empty = searching ? (
+  const empty = filtering ? (
     poolLoading ? (
       <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />
     ) : poolError ? (
@@ -144,7 +181,14 @@ export default function HomeScreen() {
       </View>
     ) : (
       <View style={styles.center}>
-        <Text style={styles.message}>Aucun résultat pour « {term.trim()} ».</Text>
+        <Text style={styles.message}>
+          {searching ? `Aucun résultat pour « ${term.trim()} ».` : 'Aucune annonce ne correspond aux filtres.'}
+        </Text>
+        {activeFilters > 0 ? (
+          <Pressable style={styles.buttonOutline} onPress={clearFilters}>
+            <Text style={styles.buttonOutlineText}>Effacer les filtres</Text>
+          </Pressable>
+        ) : null}
       </View>
     )
   ) : loading ? (
@@ -196,6 +240,13 @@ export default function HomeScreen() {
       <Pressable style={[styles.fab, { bottom: 20 }]} onPress={() => navigation.navigate('Publish')}>
         <Text style={styles.fabText}>+ Publier</Text>
       </Pressable>
+
+      <FilterSheet
+        visible={sheetOpen}
+        filters={filters}
+        onApply={onApplyFilters}
+        onClose={() => setSheetOpen(false)}
+      />
     </View>
   );
 }
@@ -209,7 +260,9 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 24, fontWeight: '700', color: colors.text },
   link: { color: colors.primary, fontWeight: '700', fontSize: 15 },
+  searchRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   search: {
+    flex: 1,
     height: 46,
     paddingHorizontal: 14,
     borderRadius: radius.input,
@@ -218,9 +271,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     color: colors.text,
     fontSize: 15,
+  },
+  filterButton: {
+    height: 46,
+    paddingHorizontal: 14,
+    borderRadius: radius.input,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterButtonOn: { backgroundColor: colors.primary },
+  filterText: { color: colors.primary, fontWeight: '600', fontSize: 14 },
+  filterTextOn: { color: '#fff' },
+  countRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  count: { color: colors.muted, marginBottom: 12 },
+  count: { color: colors.muted },
   center: { alignItems: 'center', gap: 12, paddingVertical: 40 },
   message: { color: colors.muted, textAlign: 'center' },
   buttonOutline: {
