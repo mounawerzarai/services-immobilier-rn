@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -21,6 +22,7 @@ import ListingCard from '../features/listings/ListingCard';
 import FilterSheet from '../features/search/FilterSheet';
 import { EMPTY_FILTERS, Filters, applyFilters, countActiveFilters } from '../features/search/filters';
 import { filterListings } from '../features/search/searchListings';
+import { DEFAULT_SORT, SORT_OPTIONS, SortKey, applySort } from '../features/search/sort';
 
 export default function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -38,6 +40,7 @@ export default function HomeScreen() {
   // fois (dès qu’on tape une lettre ou qu’on applique un filtre), puis on filtre côté appli.
   const [term, setTerm] = useState('');
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [sort, setSort] = useState<SortKey>(DEFAULT_SORT);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [pool, setPool] = useState<Listing[] | null>(null);
   const [poolLoading, setPoolLoading] = useState(false);
@@ -45,7 +48,10 @@ export default function HomeScreen() {
 
   const activeFilters = countActiveFilters(filters);
   const searching = term.trim().length > 0;
-  const filtering = searching || activeFilters > 0; // on affiche la liste filtrée, sans pagination
+  const sorting = sort !== DEFAULT_SORT;
+  // Recherche, filtre ou tri : on travaille sur la réserve complète (sans pagination), car un tri
+  // par prix n’a de sens que sur toutes les annonces, pas seulement sur la page chargée.
+  const filtering = searching || activeFilters > 0 || sorting;
 
   const loadPool = () => {
     setPoolLoading(true);
@@ -63,6 +69,11 @@ export default function HomeScreen() {
   const onChangeTerm = (text: string) => {
     setTerm(text);
     if (text.trim()) ensurePool();
+  };
+
+  const onChangeSort = (next: SortKey) => {
+    setSort(next);
+    if (next !== DEFAULT_SORT) ensurePool();
   };
 
   const onApplyFilters = (next: Filters) => {
@@ -123,7 +134,9 @@ export default function HomeScreen() {
     }
   };
 
-  const data = filtering ? applyFilters(filterListings(pool ?? [], term), filters) : items;
+  const data = filtering
+    ? applySort(applyFilters(filterListings(pool ?? [], term), filters), sort)
+    : items;
 
   const header = (
     <View>
@@ -154,6 +167,24 @@ export default function HomeScreen() {
           </Text>
         </Pressable>
       </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.sortRow}
+      >
+        {SORT_OPTIONS.map((o) => (
+          <Pressable
+            key={o.key}
+            accessibilityRole="button"
+            accessibilityState={{ selected: sort === o.key }}
+            style={[styles.sortChip, sort === o.key && styles.sortChipOn]}
+            onPress={() => onChangeSort(o.key)}
+          >
+            <Text style={[styles.sortText, sort === o.key && styles.sortTextOn]}>{o.label}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
       {filtering && pool !== null ? (
         <View style={styles.countRow}>
           <Text style={styles.count}>
@@ -182,7 +213,11 @@ export default function HomeScreen() {
     ) : (
       <View style={styles.center}>
         <Text style={styles.message}>
-          {searching ? `Aucun résultat pour « ${term.trim()} ».` : 'Aucune annonce ne correspond aux filtres.'}
+          {searching
+            ? `Aucun résultat pour « ${term.trim()} ».`
+            : activeFilters > 0
+              ? 'Aucune annonce ne correspond aux filtres.'
+              : 'Aucune annonce pour le moment.'}
         </Text>
         {activeFilters > 0 ? (
           <Pressable style={styles.buttonOutline} onPress={clearFilters}>
@@ -291,6 +326,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   count: { color: colors.muted },
+  sortRow: { gap: 8, paddingBottom: 12 },
+  sortChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  sortChipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  sortText: { color: colors.text, fontSize: 13 },
+  sortTextOn: { color: '#fff', fontWeight: '600' },
   center: { alignItems: 'center', gap: 12, paddingVertical: 40 },
   message: { color: colors.muted, textAlign: 'center' },
   buttonOutline: {
