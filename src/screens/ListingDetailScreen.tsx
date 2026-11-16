@@ -11,6 +11,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FavoriteButton from '../components/FavoriteButton';
+import { confirmAndDeleteListing } from '../data/services/myListings';
 import { auth } from '../core/firebase';
 import { colors, radius } from '../theme';
 import { RootStackParamList } from '../navigation/types';
@@ -169,56 +170,31 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
         </View>
       </ScrollView>
 
-      {!isMine ? (
-        <View
-          style={[
-            styles.bar,
-            { paddingBottom: insets.bottom + 12 },
-          ]}
-        >
-
-                {!isMine ? (
-        <View
-          style={[
-            styles.bar,
-            { paddingBottom: insets.bottom + 12 },
-          ]}
-        >
+      {isMine ? (
+        <View style={[styles.bar, { paddingBottom: insets.bottom + 12 }]}>
+          <Pressable
+            style={[styles.barButton, styles.barOutline]}
+            onPress={() => navigation.navigate('Publish', { id })}
+          >
+            <Text style={styles.barOutlineText}>Modifier</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.barButton, styles.barDanger]}
+            onPress={async () => {
+              if (await confirmAndDeleteListing(id, listing.title)) navigation.goBack();
+            }}
+          >
+            <Text style={styles.barPrimaryText}>Supprimer</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={[styles.bar, { paddingBottom: insets.bottom + 12 }]}>
           <FavoriteButton listingId={id} />
-
-          <Pressable
-            style={[
-              styles.barButton,
-              styles.barPrimary,
-              styles.disabled,
-            ]}
-            disabled
-          >
-            <Text style={styles.barPrimaryText}>
-              Contacter
-            </Text>
+          <Pressable style={[styles.barButton, styles.barPrimary, styles.disabled]} disabled>
+            <Text style={styles.barPrimaryText}>Contacter</Text>
           </Pressable>
         </View>
-      ) : null}
-
-
-
-
-
-          <Pressable
-            style={[
-              styles.barButton,
-              styles.barPrimary,
-              styles.disabled,
-            ]}
-            disabled
-          >
-            <Text style={styles.barPrimaryText}>
-              Contacter
-            </Text>
-          </Pressable>
-        </View>
-      ) : null}
+      )}
     </View>
   );
 }
@@ -381,6 +357,10 @@ const styles = StyleSheet.create({
 
   barPrimary: {
     backgroundColor: colors.primary,
+  },
+
+  barDanger: {
+    backgroundColor: '#B3261E',
   },
 
   barPrimaryText: {

@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -21,6 +19,7 @@ import { Listing, ListingStatus } from '../data/models/Listing';
 import { getUser, updateUserProfile } from '../data/services/users';
 import { getMyListings } from '../data/services/listings';
 import { logout } from '../data/services/auth';
+import { confirmAsync, showMessage } from '../core/dialogs';
 import { ProfileErrors, validateProfile } from '../features/favorites_profile/validation';
 
 const statusLabel: Record<ListingStatus, string> = {
@@ -56,7 +55,7 @@ export default function ProfileScreen() {
           setPhone(user.phone ?? '');
         }
       })
-      .catch(() => Alert.alert('Erreur', 'Impossible de charger votre profil.'))
+      .catch(() => showMessage('Erreur', 'Impossible de charger votre profil.'))
       .finally(() => setLoadingProfile(false));
   }, [uid]);
 
@@ -86,22 +85,20 @@ export default function ProfileScreen() {
       await updateUserProfile(uid, { name, phone });
       setSaved(true);
     } catch {
-      Alert.alert('Erreur', 'Impossible d’enregistrer. Vérifiez votre connexion.');
+      showMessage('Erreur', 'Impossible d’enregistrer. Vérifiez votre connexion.');
     } finally {
       setSaving(false);
     }
   };
 
-  const onLogout = () => {
-    // Alert.alert avec boutons ne fonctionne pas sur le web : on utilise confirm().
-    if (Platform.OS === 'web') {
-      if (window.confirm('Voulez-vous vous déconnecter ?')) logout();
-      return;
-    }
-    Alert.alert('Déconnexion', 'Voulez-vous vous déconnecter ?', [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Se déconnecter', style: 'destructive', onPress: () => logout() },
-    ]);
+  const onLogout = async () => {
+    const ok = await confirmAsync({
+      title: 'Déconnexion',
+      message: 'Voulez-vous vous déconnecter ?',
+      confirmText: 'Se déconnecter',
+      destructive: true,
+    });
+    if (ok) logout();
   };
 
   const header = (

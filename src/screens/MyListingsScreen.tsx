@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet, Text, View,
+  ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View,
 } from 'react-native';
 import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
 import { auth, db } from '../core/firebase';
-import { deleteListing, setListingStatus } from '../services/listingService';
+import { confirmAndDeleteListing, toggleListingStatus } from '../data/services/myListings';
+import { errorText, showMessage } from '../core/dialogs';
 import { colors, radius } from '../theme';
 
 const LABELS: Record<string, string> = {
@@ -29,28 +30,9 @@ export default function MyListingsScreen() {
     return onSnapshot(
       q,
       (snap) => setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-      (e) => Alert.alert('Erreur', String(e)),
+      (e) => showMessage('Erreur', errorText(e)),
     );
   }, [uid]);
-
-  const confirmDelete = (id: string) =>
-    Alert.alert("Supprimer l'annonce ?", 'Cette action est définitive.', [
-      { text: 'Annuler', style: 'cancel' },
-      {
-        text: 'Supprimer',
-        style: 'destructive',
-        onPress: () =>
-          deleteListing(id).catch((e) => Alert.alert('Erreur', String(e))),
-      },
-    ]);
-
-  const toggleStatus = (item: any) => {
-    const closed = item.transactionType === 'rent' ? 'rented' : 'sold';
-    setListingStatus(
-      item.id,
-      item.status === 'available' ? closed : 'available',
-    ).catch((e) => Alert.alert('Erreur', String(e)));
-  };
 
   if (!uid) {
     return <Text style={s.message}>Connectez-vous pour voir vos annonces.</Text>;
@@ -90,14 +72,14 @@ export default function MyListingsScreen() {
               <Pressable onPress={() => navigation.navigate('Publish', { id: item.id })}>
                 <Text style={s.link}>Modifier</Text>
               </Pressable>
-              <Pressable onPress={() => toggleStatus(item)}>
+              <Pressable onPress={() => toggleListingStatus(item)}>
                 <Text style={s.link}>
                   {available
                     ? isRent ? 'Marquer loué' : 'Marquer vendu'
                     : 'Remettre en ligne'}
                 </Text>
               </Pressable>
-              <Pressable onPress={() => confirmDelete(item.id)}>
+              <Pressable onPress={() => confirmAndDeleteListing(item.id, item.title)}>
                 <Text style={[s.link, { color: '#C0392B' }]}>Supprimer</Text>
               </Pressable>
             </View>
