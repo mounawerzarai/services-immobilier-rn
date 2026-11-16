@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Image, KeyboardAvoidingView, Platform,
   Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { auth } from '../core/firebase';
 import { createListing, getListing, updateListing } from '../services/listingService';
 import { colors, radius } from '../theme';
+import { showMessage } from '../core/dialogs';
 
 const TYPES: [string, string][] = [
   ['apartment', 'Appartement'],
@@ -79,7 +80,7 @@ export default function PublishScreen() {
         setTransaction(d.transactionType === 'rent' ? 'rent' : 'sale');
         setKept(d.photos ?? []);
       } catch (e: any) {
-        Alert.alert('Erreur', String(e?.message ?? e));
+        showMessage('Erreur', String(e?.message ?? e));
         navigation.goBack();
       } finally {
         setLoadingDoc(false);
@@ -103,12 +104,12 @@ export default function PublishScreen() {
     const p = parseFloat(price.replace(',', '.'));
     const sf = parseFloat(surface.replace(',', '.'));
     if (!title.trim() || !description.trim() || !address.trim() || !city.trim())
-      return Alert.alert('Champs manquants', 'Remplissez tous les champs obligatoires.');
+      return showMessage('Champs manquants', 'Remplissez tous les champs obligatoires.');
     if (!(p > 0) || !(sf > 0))
-      return Alert.alert('Valeur invalide', 'Prix et surface doivent être positifs.');
-    if (total === 0) return Alert.alert('Photos', 'Ajoutez au moins 1 photo.');
+      return showMessage('Valeur invalide', 'Prix et surface doivent être positifs.');
+    if (total === 0) return showMessage('Photos', 'Ajoutez au moins 1 photo.');
     if (!auth.currentUser) {
-      Alert.alert('Connexion', 'Connectez-vous pour publier.');
+      showMessage('Connexion', 'Connectez-vous pour publier.');
       return navigation.navigate('Login');
     }
     setLoading(true);
@@ -133,14 +134,14 @@ export default function PublishScreen() {
           newPhotoUris: photos,
           addressChanged: changed,
         });
-        Alert.alert('Annonce modifiée');
+        showMessage('Annonce modifiée');
       } else {
         await createListing({ ...common, photoUris: photos });
-        Alert.alert('Annonce publiée');
+        showMessage('Annonce publiée');
       }
       navigation.goBack();
     } catch (e: any) {
-      Alert.alert('Erreur', String(e?.message ?? e));
+      showMessage('Erreur', String(e?.message ?? e));
     } finally {
       setLoading(false);
     }
