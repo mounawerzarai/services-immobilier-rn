@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Ionicons } from '@expo/vector-icons';
+
 import { colors, radius } from '../../theme';
 import { TransactionType } from '../../data/models/Listing';
 import { propertyTypeLabel } from '../listings/format';
@@ -82,10 +84,11 @@ function SheetBody({ filters, onApply, onClose }: Omit<Props, 'visible'>) {
     >
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Fermer" />
       <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+        <View style={styles.handle} />
         <View style={styles.titleRow}>
           <Text style={styles.title}>Filtres</Text>
           <Pressable onPress={onClose} hitSlop={8}>
-            <Text style={styles.close}>Fermer</Text>
+            <Ionicons name="close" size={24} color={colors.text} />
           </Pressable>
         </View>
 
@@ -177,20 +180,28 @@ const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(22,33,43,0.45)' },
   sheet: {
     backgroundColor: colors.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    paddingHorizontal: 22,
+    paddingTop: 10,
     maxHeight: '85%',
   },
+  handle: {
+    alignSelf: 'center',
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: colors.border,
+    marginBottom: 12,
+  },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  title: { fontSize: 20, fontWeight: '700', color: colors.text },
+  title: { fontSize: 22, fontWeight: '800', color: colors.text },
   close: { color: colors.primary, fontWeight: '600', fontSize: 15 },
   label: { fontSize: 14, fontWeight: '600', color: colors.text, marginTop: 16, marginBottom: 8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.border,
@@ -200,11 +211,11 @@ const styles = StyleSheet.create({
   chipText: { color: colors.text, fontSize: 14 },
   chipTextOn: { color: '#fff', fontWeight: '600' },
   input: {
-    height: 46,
+    height: 48,
     paddingHorizontal: 14,
     borderRadius: radius.input,
     borderWidth: 1,
-    borderColor: '#d0d5dd',
+    borderColor: colors.border,
     backgroundColor: '#fff',
     color: colors.text,
     fontSize: 15,
@@ -215,7 +226,7 @@ const styles = StyleSheet.create({
   buttons: { flexDirection: 'row', gap: 12, marginTop: 16 },
   button: {
     flex: 1,
-    height: 50,
+    height: 52,
     borderRadius: radius.input,
     alignItems: 'center',
     justifyContent: 'center',
@@ -223,5 +234,5 @@ const styles = StyleSheet.create({
   buttonOutline: { borderWidth: 1.5, borderColor: colors.primary },
   buttonOutlineText: { color: colors.primary, fontSize: 16, fontWeight: '600' },
   buttonPrimary: { backgroundColor: colors.primary },
-  buttonPrimaryText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  buttonPrimaryText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });
