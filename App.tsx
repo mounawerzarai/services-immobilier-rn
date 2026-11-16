@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 
 import { auth } from './src/core/firebase';
 import RootNavigator from './src/navigation';
@@ -25,9 +27,10 @@ export default function App() {
     );
   }
 
-  if (!user) {
-    return <AuthScreen />;
-  }
-
-  return <RootNavigator />;
+  return (
+    <SafeAreaProvider>
+      <StatusBar style={user ? 'dark' : 'light'} />
+      {user ? <RootNavigator /> : <AuthScreen />}
+    </SafeAreaProvider>
+  );
 }
