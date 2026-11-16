@@ -1,4 +1,3 @@
-
 {
   "expo": {
     "name": "services-immobilier-rn",
@@ -18,18 +17,10 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "INTERNET",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
-      ]
+      "predictiveBackGestureEnabled": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "@maplibre/maplibre-react-native"
-    ]
+    }
   }
 }
