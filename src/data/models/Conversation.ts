@@ -22,4 +22,6 @@ export interface Message {
   text: string;
   /** null tant que le serveur n'a pas confirmé l'envoi. */
   sentAt: number | null;
+  /** Heure à afficher (heure locale estimée tant que l'envoi est en cours). */
+  estimatedAt: number;
 }

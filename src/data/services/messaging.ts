@@ -2,12 +2,18 @@ import {
   DocumentData,
   Timestamp,
   collection,
+  doc,
+  limit,
   onSnapshot,
+  orderBy,
   query,
+  serverTimestamp,
+  updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import { auth, db } from '../../core/firebase';
-import { Conversation } from '../models/Conversation';
+import { Conversation, Message } from '../models/Conversation';
 
 // Messagerie (Firestore) :
 //   conversations/{id}                 participants, annonce, dernier message, lectures
@@ -72,7 +78,7 @@ export function watchConversations(
     q,
     (snap) => {
       const items = snap.docs
-        .map((d) => toConversation(d.id, d.data()))
+        .map((d) => toConversation(d.id, d.data({ serverTimestamps: 'estimate' })))
         .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
       cb(items);
     },
@@ -91,4 +97,84 @@ export function watchUnreadCount(cb: (n: number) => void) {
     (items) => cb(items.filter((c) => isUnread(c, uid)).length),
     () => cb(0),
   );
+}
+
+// ---------- T8.2 — Chat en temps réel ----------
+
+export const MAX_MESSAGE_LENGTH = 2000;
+export const MESSAGES_LIMIT = 200;
+
+/** Une conversation en temps réel (null si elle n'existe pas ou n'est pas accessible). */
+export function watchConversation(
+  id: string,
+  cb: (c: Conversation | null) => void,
+  onError?: (e: unknown) => void,
+) {
+  return onSnapshot(
+    doc(db, 'conversations', id),
+    (s) => cb(s.exists() ? toConversation(s.id, s.data({ serverTimestamps: 'estimate' })) : null),
+    (e) => onError?.(e),
+  );
+}
+
+/** Messages d'une conversation, du plus récent au plus ancien (pour une liste inversée). */
+export function watchMessages(
+  conversationId: string,
+  cb: (items: Message[]) => void,
+  onError?: (e: unknown) => void,
+) {
+  const q = query(
+    collection(db, 'conversations', conversationId, 'messages'),
+    orderBy('sentAt', 'desc'),
+    limit(MESSAGES_LIMIT),
+  );
+  return onSnapshot(
+    q,
+    { includeMetadataChanges: true },
+    (snap) =>
+      cb(
+        snap.docs.map((d) => {
+          // « estimate » : un message en cours d'envoi a déjà une heure locale.
+          const data = d.data({ serverTimestamps: 'estimate' });
+          return {
+            id: d.id,
+            senderId: data.senderId,
+            text: data.text,
+            sentAt: d.metadata.hasPendingWrites ? null : (toMillis(data.sentAt) ?? null),
+            estimatedAt: toMillis(data.sentAt) ?? Date.now(),
+          } as Message;
+        }),
+      ),
+    (e) => onError?.(e),
+  );
+}
+
+/** Envoie un message et met à jour l'aperçu de la conversation (écriture atomique). */
+export async function sendMessage(conversationId: string, text: string) {
+  const uid = auth.currentUser?.uid;
+  const body = text.trim().slice(0, MAX_MESSAGE_LENGTH);
+  if (!uid || !body) return;
+  const conv = doc(db, 'conversations', conversationId);
+  const batch = writeBatch(db);
+  batch.set(doc(collection(conv, 'messages')), {
+    senderId: uid,
+    text: body,
+    sentAt: serverTimestamp(),
+  });
+  batch.update(conv, {
+    lastMessage: body,
+    lastSenderId: uid,
+    updatedAt: serverTimestamp(),
+    [`readAt.${uid}`]: serverTimestamp(),
+  });
+  await batch.commit();
+}
+
+/** Marque la conversation comme lue par l'utilisateur connecté. */
+export async function markConversationRead(conversationId: string) {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return;
+  await updateDoc(doc(db, 'conversations', conversationId), {
+    [`readAt.${uid}`]: serverTimestamp(),
+  });
 }
