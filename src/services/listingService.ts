@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../core/firebase';
 import { uploadImage } from './imageUploader';
+import { emitListingDeleted } from '../core/listingEvents';
 
 export type NewListing = {
   title: string;
@@ -150,8 +151,11 @@ export async function updateListing(id: string, data: EditListing) {
 }
 
 // Supprimer une annonce
-export const deleteListing = (id: string) =>
-  deleteDoc(doc(db, 'listings', id));
+export async function deleteListing(id: string) {
+  await deleteDoc(doc(db, 'listings', id));
+  // L'accueil retire tout de suite l'annonce de sa liste (sinon elle restait affichée).
+  emitListingDeleted(id);
+}
 
 // Modifier le statut d'une annonce
 export const setListingStatus = (
