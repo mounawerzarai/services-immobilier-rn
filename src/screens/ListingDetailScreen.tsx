@@ -7,6 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import FavoriteButton from '../components/FavoriteButton';
 import { AppButton, Avatar, EmptyState, IconButton, IconName, IconText, Pill } from '../components/ui';
 import { confirmAndDeleteListing } from '../data/services/myListings';
+import { ContactError, startConversation } from '../data/services/messaging';
+import { errorText, showMessage } from '../core/dialogs';
 import { auth } from '../core/firebase';
 import { colors, radius, shadow } from '../theme';
 import { RootStackParamList } from '../navigation/types';
@@ -38,6 +40,7 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
   const [state, setState] = useState<LoadState>('loading');
   const [detail, setDetail] = useState<ListingDetail | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [contacting, setContacting] = useState(false);
 
   // Bouton retour rond, lisible sur n'importe quelle photo.
   useLayoutEffect(() => {
@@ -192,7 +195,32 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
         ) : (
           <>
             <FavoriteButton listingId={id} />
-            <AppButton label="Contacter" icon="chatbubble-ellipses-outline" style={{ flex: 1 }} disabled />
+            <AppButton
+              label="Contacter"
+              icon="chatbubble-ellipses-outline"
+              style={{ flex: 1 }}
+              loading={contacting}
+              onPress={async () => {
+                setContacting(true);
+                try {
+                  const conversationId = await startConversation({
+                    listingId: listing.id || id,
+                    listingTitle: listing.title,
+                    listingPhoto: listing.photos?.[0] ?? null,
+                    sellerId: listing.sellerId,
+                    sellerName: seller?.name,
+                  });
+                  navigation.navigate('Chat', { id: conversationId });
+                } catch (e) {
+                  showMessage(
+                    'Contact impossible',
+                    e instanceof ContactError ? e.message : errorText(e),
+                  );
+                } finally {
+                  setContacting(false);
+                }
+              }}
+            />
           </>
         )}
       </View>
