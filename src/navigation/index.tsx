@@ -3,10 +3,12 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { colors } from '../theme';
 import { RootStackParamList, TabParamList } from './types';
+import { watchUnreadCount } from '../data/services/messaging';
 
 import HomeScreen from '../screens/HomeScreen';
 import MapScreen from '../screens/MapScreen';
@@ -31,6 +33,10 @@ const icons: Record<keyof TabParamList, [string, string]> = {
 };
 
 function Tabs() {
+  // Badge de l'onglet Messages : nombre de conversations non lues.
+  const [unread, setUnread] = useState(0);
+  useEffect(() => watchUnreadCount(setUnread), []);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -60,7 +66,14 @@ function Tabs() {
       <Tab.Screen name="Accueil" component={HomeScreen} />
       <Tab.Screen name="Carte" component={MapScreen} />
       <Tab.Screen name="Favoris" component={FavoritesScreen} />
-      <Tab.Screen name="Messages" component={MessagesScreen} />
+      <Tab.Screen
+        name="Messages"
+        component={MessagesScreen}
+        options={{
+          tabBarBadge: unread > 0 ? (unread > 9 ? '9+' : unread) : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.danger, fontSize: 11, fontWeight: '700' },
+        }}
+      />
       <Tab.Screen name="Profil" component={ProfileScreen} />
     </Tab.Navigator>
   );
