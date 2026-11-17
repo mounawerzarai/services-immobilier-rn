@@ -3,17 +3,20 @@ import {
   Timestamp,
   collection,
   doc,
+  getDoc,
   limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where,
   writeBatch,
 } from 'firebase/firestore';
 import { auth, db } from '../../core/firebase';
 import { Conversation, Message } from '../models/Conversation';
+import { getUser } from './users';
 
 // Messagerie (Firestore) :
 //   conversations/{id}                 participants, annonce, dernier message, lectures
@@ -177,4 +180,53 @@ export async function markConversationRead(conversationId: string) {
   await updateDoc(doc(db, 'conversations', conversationId), {
     [`readAt.${uid}`]: serverTimestamp(),
   });
+}
+
+// ---------- T8.3 — Démarrer une conversation depuis une annonce ----------
+
+/**
+ * Identifiant unique pour (annonce, acheteur, vendeur) : recontacter le même
+ * vendeur pour la même annonce rouvre la même conversation.
+ */
+export function conversationIdFor(listingId: string, a: string, b: string) {
+  const [x, y] = [a, b].sort();
+  return `${listingId}_${x}_${y}`;
+}
+
+export class ContactError extends Error {}
+
+/** Ouvre la conversation existante ou la crée. Renvoie son identifiant. */
+export async function startConversation(params: {
+  listingId: string;
+  listingTitle: string;
+  listingPhoto?: string | null;
+  sellerId: string;
+  sellerName?: string;
+}): Promise<string> {
+  const user = auth.currentUser;
+  if (!user) throw new ContactError('Connectez-vous pour contacter le vendeur.');
+  if (user.uid === params.sellerId) throw new ContactError('Vous êtes le vendeur de cette annonce.');
+
+  const id = conversationIdFor(params.listingId, user.uid, params.sellerId);
+  const ref = doc(db, 'conversations', id);
+  try {
+    if ((await getDoc(ref)).exists()) return id;
+  } catch (e) {
+    // Les règles refusent la lecture d'une conversation qui n'existe pas encore.
+    if ((e as { code?: string })?.code !== 'permission-denied') throw e;
+  }
+
+  const myName =
+    user.displayName?.trim() || (await getUser(user.uid).catch(() => null))?.name || 'Utilisateur';
+  await setDoc(ref, {
+    participants: [user.uid, params.sellerId].sort(),
+    listingId: params.listingId,
+    listingTitle: params.listingTitle,
+    listingPhoto: params.listingPhoto ?? null,
+    names: { [user.uid]: myName, [params.sellerId]: params.sellerName || 'Vendeur' },
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    readAt: { [user.uid]: serverTimestamp() },
+  });
+  return id;
 }
