@@ -34,6 +34,7 @@ import {
 import { propertyTypeLabel } from '../features/listings/format';
 import { filterListings } from '../features/search/searchListings';
 import { DEFAULT_SORT, SORT_OPTIONS, SortKey, applySort } from '../features/search/sort';
+import { onListingDeleted } from '../core/listingEvents';
 
 const TYPE_ICONS: Record<string, IconName> = {
   apartment: 'business-outline',
@@ -113,6 +114,16 @@ export default function HomeScreen() {
     setFilters(next);
     if (countActiveFilters(next) > 0) ensurePool();
   };
+
+  // Une annonce supprimée (depuis le détail ou « Mes annonces ») disparaît aussitôt de l'accueil.
+  useEffect(
+    () =>
+      onListingDeleted((id) => {
+        setItems((list) => list.filter((l) => l.id !== id));
+        setPool((list) => (list ? list.filter((l) => l.id !== id) : list));
+      }),
+    [],
+  );
 
   // Premier chargement (les états « chargement » sont déjà à true au départ).
   useEffect(() => {
