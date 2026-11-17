@@ -70,7 +70,7 @@ export default function FavoritesScreen() {
       style={styles.screen}
       data={items}
       keyExtractor={(i) => i.id}
-      contentContainerStyle={{ paddingTop: insets.top, paddingHorizontal: 20, paddingBottom: 24, gap: 16, flexGrow: 1 }}
+      contentContainerStyle={{ paddingTop: insets.top, paddingHorizontal: 20, paddingBottom: 24, flexGrow: 1 }}
       ListHeaderComponent={header}
       ListEmptyComponent={
         <EmptyState
@@ -94,7 +94,7 @@ export default function FavoritesScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
-  header: { paddingTop: 16, paddingBottom: 4, paddingHorizontal: 0 },
+  header: { paddingTop: 16, paddingBottom: 16 },
   title: { fontSize: 28, fontWeight: '800', color: colors.text, letterSpacing: -0.5 },
   subtitle: { fontSize: 14, color: colors.muted, marginTop: 4 },
 });
