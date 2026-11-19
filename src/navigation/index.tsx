@@ -1,5 +1,5 @@
 
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import { Platform } from 'react-native';
 import { colors } from '../theme';
 import { RootStackParamList, TabParamList } from './types';
 import { watchUnreadCount } from '../data/services/messaging';
+import MessageAlerts from '../features/notifications/MessageAlerts';
 
 import HomeScreen from '../screens/HomeScreen';
 import MapScreen from '../screens/MapScreen';
@@ -20,6 +21,8 @@ import PublishScreen from '../screens/PublishScreen';
 import ListingDetailScreen from '../screens/ListingDetailScreen';
 import ChatScreen from '../screens/ChatScreen';
 import MyListingsScreen from '../screens/MyListingsScreen';
+
+const navRef = createNavigationContainerRef<RootStackParamList>();
 
 const Tab = createBottomTabNavigator<TabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -101,7 +104,8 @@ const stackOptions = {
 
 export default function RootNavigator() {
   return (
-    <NavigationContainer theme={navTheme}>
+    <>
+    <NavigationContainer theme={navTheme} ref={navRef}>
       <Stack.Navigator screenOptions={stackOptions}>
         <Stack.Screen
           name="Tabs"
@@ -136,5 +140,7 @@ export default function RootNavigator() {
         />
       </Stack.Navigator>
     </NavigationContainer>
+    <MessageAlerts navRef={navRef} />
+    </>
   );
 }
