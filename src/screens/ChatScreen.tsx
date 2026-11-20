@@ -36,6 +36,9 @@ import { colors, radius, shadow } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
+// Le compteur de caractères n'apparaît qu'à l'approche de la limite.
+const COUNTER_FROM = 1800;
+
 function HeaderTitle({ name, subtitle }: { name: string; subtitle?: string }) {
   return (
     <View style={styles.headerTitle}>
@@ -210,6 +213,16 @@ export default function ChatScreen({ route, navigation }: Props) {
         }
       />
 
+      {text.length >= COUNTER_FROM ? (
+        <View style={styles.counterRow}>
+          <Text style={[styles.counter, text.length >= MAX_MESSAGE_LENGTH && { color: colors.danger }]}>
+            {text.length >= MAX_MESSAGE_LENGTH
+              ? `Limite atteinte : ${text.length} / ${MAX_MESSAGE_LENGTH} caractères`
+              : `${text.length} / ${MAX_MESSAGE_LENGTH}`}
+          </Text>
+        </View>
+      ) : null}
+
       <View style={[styles.composer, { paddingBottom: insets.bottom + 10 }]}>
         <TextInput
           ref={input}
@@ -288,6 +301,13 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 17, fontWeight: '800', color: colors.text },
   emptyText: { fontSize: 14, color: colors.muted, textAlign: 'center' },
+  counterRow: {
+    alignItems: 'flex-end',
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    backgroundColor: colors.surface,
+  },
+  counter: { fontSize: 12, color: colors.muted, fontWeight: '600' },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',

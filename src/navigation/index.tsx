@@ -10,6 +10,7 @@ import { colors } from '../theme';
 import { RootStackParamList, TabParamList } from './types';
 import { watchUnreadCount } from '../data/services/messaging';
 import MessageAlerts from '../features/notifications/MessageAlerts';
+import OfflineBanner from '../features/offline/OfflineBanner';
 
 import HomeScreen from '../screens/HomeScreen';
 import MapScreen from '../screens/MapScreen';
@@ -140,6 +141,7 @@ export default function RootNavigator() {
         />
       </Stack.Navigator>
     </NavigationContainer>
+    <OfflineBanner />
     <MessageAlerts navRef={navRef} />
     </>
   );
