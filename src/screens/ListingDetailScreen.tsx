@@ -1,10 +1,16 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useLayoutEffect, useState } from 'react';
+import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
+import FavoriteButton from '../components/FavoriteButton';
+import { AppButton, Avatar, EmptyState, IconButton, IconName, IconText, Pill } from '../components/ui';
+import { confirmAndDeleteListing } from '../data/services/myListings';
+import { ContactError, startConversation } from '../data/services/messaging';
+import { errorText, showMessage } from '../core/dialogs';
 import { auth } from '../core/firebase';
-import { colors, radius } from '../theme';
+import { colors, radius, shadow } from '../theme';
 import { RootStackParamList } from '../navigation/types';
 import { ListingDetail, getListingDetail } from '../data/services/listings';
 import PhotoCarousel from '../features/listings/PhotoCarousel';
@@ -13,6 +19,20 @@ import { formatPrice, propertyTypeLabel, transactionLabel } from '../features/li
 type Props = NativeStackScreenProps<RootStackParamList, 'ListingDetail'>;
 type LoadState = 'loading' | 'ready' | 'notfound' | 'error';
 
+function Fact({ icon, label, value }: { icon: IconName; label: string; value: string }) {
+  return (
+    <View style={styles.fact}>
+      <View style={styles.factIcon}>
+        <Ionicons name={icon} size={18} color={colors.primary} />
+      </View>
+      <Text style={styles.factValue} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
+      <Text style={styles.factLabel}>{label}</Text>
+    </View>
+  );
+}
+
 export default function ListingDetailScreen({ route, navigation }: Props) {
   const { id } = route.params;
   const insets = useSafeAreaInsets();
@@ -20,9 +40,26 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
   const [state, setState] = useState<LoadState>('loading');
   const [detail, setDetail] = useState<ListingDetail | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [contacting, setContacting] = useState(false);
+
+  // Bouton retour rond, lisible sur n'importe quelle photo.
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerLeft: () => (
+        <IconButton
+          icon="chevron-back"
+          label="Retour"
+          size={40}
+          onPress={() => navigation.goBack()}
+          style={{ marginLeft: 4 }}
+        />
+      ),
+    });
+  }, [navigation]);
 
   useEffect(() => {
     let active = true;
+
     getListingDetail(id)
       .then((found) => {
         if (!active) return;
@@ -34,6 +71,7 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
         }
       })
       .catch(() => active && setState('error'));
+
     return () => {
       active = false;
     };
@@ -54,18 +92,15 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
 
   if (state === 'notfound' || state === 'error' || !detail) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.message}>
-          {state === 'notfound'
-            ? 'Cette annonce n’existe plus.'
-            : 'Impossible de charger l’annonce. Vérifiez votre connexion.'}
-        </Text>
-        <Pressable
-          style={styles.buttonOutline}
-          onPress={state === 'notfound' ? () => navigation.goBack() : retry}
-        >
-          <Text style={styles.buttonOutlineText}>{state === 'notfound' ? 'Retour' : 'Réessayer'}</Text>
-        </Pressable>
+      <View style={[styles.center, { paddingTop: insets.top + 40 }]}>
+        <EmptyState
+          icon={state === 'notfound' ? 'trash-outline' : 'cloud-offline-outline'}
+          tone={state === 'notfound' ? 'primary' : 'danger'}
+          title={state === 'notfound' ? 'Cette annonce n’existe plus' : 'Chargement impossible'}
+          text={state === 'notfound' ? undefined : 'Vérifiez votre connexion puis réessayez.'}
+          actionLabel={state === 'notfound' ? 'Retour' : 'Réessayer'}
+          onAction={state === 'notfound' ? () => navigation.goBack() : retry}
+        />
       </View>
     );
   }
@@ -73,42 +108,40 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
   const { listing, seller } = detail;
   const isMine = listing.sellerId === auth.currentUser?.uid;
   const closed = listing.status !== 'available';
-  const facts = [
-    propertyTypeLabel(listing.propertyType),
-    listing.surface ? `${listing.surface} m²` : '',
-    listing.rooms ? `${listing.rooms} pièce${listing.rooms > 1 ? 's' : ''}` : '',
-  ].filter(Boolean);
   const place = [listing.address, listing.city].filter(Boolean).join(', ');
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         <PhotoCarousel photos={listing.photos} />
 
-        <View style={styles.body}>
-          {closed ? (
-            <Text style={styles.closed}>
-              Cette annonce est {listing.status === 'rented' ? 'louée' : 'vendue'}.
-            </Text>
-          ) : null}
-
-          <View style={styles.row}>
-            <Text style={styles.price}>{formatPrice(listing)}</Text>
-            <Text style={styles.badge}>{transactionLabel(listing.transactionType)}</Text>
+        <View style={styles.sheet}>
+          <View style={styles.pills}>
+            <Pill
+              label={transactionLabel(listing.transactionType)}
+              tone={listing.transactionType === 'rent' ? 'accent' : 'primary'}
+            />
+            {listing.propertyType ? (
+              <Pill label={propertyTypeLabel(listing.propertyType)} tone="neutral" />
+            ) : null}
+            {closed ? (
+              <Pill label={listing.status === 'rented' ? 'Loué' : 'Vendu'} tone="danger" />
+            ) : null}
           </View>
 
           <Text style={styles.title}>{listing.title}</Text>
-          {place ? <Text style={styles.place}>{place}</Text> : null}
+          {place ? <IconText icon="location-outline" text={place} size={14} /> : null}
+          <Text style={styles.price}>{formatPrice(listing)}</Text>
 
-          {facts.length > 0 ? (
-            <View style={styles.facts}>
-              {facts.map((f) => (
-                <Text key={f} style={styles.fact}>
-                  {f}
-                </Text>
-              ))}
-            </View>
-          ) : null}
+          <View style={styles.facts}>
+            <Fact
+              icon="business-outline"
+              label="Type"
+              value={propertyTypeLabel(listing.propertyType) || '—'}
+            />
+            <Fact icon="resize-outline" label="Surface" value={listing.surface ? `${listing.surface} m²` : '—'} />
+            <Fact icon="bed-outline" label="Pièces" value={listing.rooms ? String(listing.rooms) : '—'} />
+          </View>
 
           {listing.description ? (
             <>
@@ -117,25 +150,80 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
             </>
           ) : null}
 
-          <Text style={styles.section}>Vendeur</Text>
+          <Text style={styles.section}>{isMine ? 'Votre annonce' : 'Vendeur'}</Text>
           <View style={styles.seller}>
-            <Text style={styles.sellerName}>{seller?.name || 'Vendeur'}</Text>
-            {seller?.phone ? <Text style={styles.sellerPhone}>{seller.phone}</Text> : null}
+            <Avatar name={seller?.name || 'V'} size={48} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sellerName}>{seller?.name || 'Vendeur'}</Text>
+              <Text style={styles.sellerMeta}>
+                {seller?.phone ? seller.phone : 'Téléphone non renseigné'}
+              </Text>
+            </View>
+            {seller?.phone && !isMine ? (
+              <IconButton
+                icon="call-outline"
+                label="Appeler"
+                color={colors.primary}
+                background={colors.primarySoft}
+                onPress={() => Linking.openURL(`tel:${seller.phone}`)}
+              />
+            ) : null}
           </View>
         </View>
       </ScrollView>
 
-      {!isMine ? (
-        <View style={[styles.bar, { paddingBottom: insets.bottom + 12 }]}>
-          {/* Favori (T7) et Contacter (T8) seront branchés dans leurs tâches. */}
-          <Pressable style={[styles.barButton, styles.barOutline, styles.disabled]} disabled>
-            <Text style={styles.barOutlineText}>♡ Favori</Text>
-          </Pressable>
-          <Pressable style={[styles.barButton, styles.barPrimary, styles.disabled]} disabled>
-            <Text style={styles.barPrimaryText}>Contacter</Text>
-          </Pressable>
-        </View>
-      ) : null}
+      <View style={[styles.bar, { paddingBottom: insets.bottom + 12 }]}>
+        {isMine ? (
+          <>
+            <AppButton
+              label="Modifier"
+              icon="create-outline"
+              variant="outline"
+              style={{ flex: 1 }}
+              onPress={() => navigation.navigate('Publish', { id })}
+            />
+            <AppButton
+              label="Supprimer"
+              icon="trash-outline"
+              variant="danger"
+              style={{ flex: 1 }}
+              onPress={async () => {
+                if (await confirmAndDeleteListing(id, listing.title)) navigation.goBack();
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <FavoriteButton listingId={id} />
+            <AppButton
+              label="Contacter"
+              icon="chatbubble-ellipses-outline"
+              style={{ flex: 1 }}
+              loading={contacting}
+              onPress={async () => {
+                setContacting(true);
+                try {
+                  const conversationId = await startConversation({
+                    listingId: listing.id || id,
+                    listingTitle: listing.title,
+                    listingPhoto: listing.photos?.[0] ?? null,
+                    sellerId: listing.sellerId,
+                    sellerName: seller?.name,
+                  });
+                  navigation.navigate('Chat', { id: conversationId });
+                } catch (e) {
+                  showMessage(
+                    'Contact impossible',
+                    e instanceof ContactError ? e.message : errorText(e),
+                  );
+                } finally {
+                  setContacting(false);
+                }
+              }}
+            />
+          </>
+        )}
+      </View>
     </View>
   );
 }
@@ -145,84 +233,62 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    padding: 24,
-    backgroundColor: colors.background,
+    backgroundColor: colors.canvas,
   },
-  message: { color: colors.muted, textAlign: 'center' },
-  buttonOutline: {
-    height: 46,
-    paddingHorizontal: 20,
-    borderRadius: radius.input,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
+  sheet: {
+    marginTop: -26,
+    backgroundColor: colors.canvas,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: 20,
+    gap: 8,
+  },
+  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 4 },
+  title: { fontSize: 22, fontWeight: '800', color: colors.text, letterSpacing: -0.3 },
+  price: { fontSize: 26, fontWeight: '800', color: colors.primary, marginTop: 6, letterSpacing: -0.5 },
+  facts: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  fact: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    gap: 4,
+    ...shadow(1),
+  },
+  factIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 2,
   },
-  buttonOutlineText: { color: colors.primary, fontSize: 15, fontWeight: '600' },
-  body: { padding: 20, gap: 8 },
-  closed: {
-    color: '#B3261E',
-    backgroundColor: '#FCEAE8',
-    padding: 10,
-    borderRadius: radius.input,
-    overflow: 'hidden',
-    fontWeight: '600',
-  },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  price: { fontSize: 26, fontWeight: '700', color: colors.text },
-  badge: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radius.pill,
-    overflow: 'hidden',
-  },
-  title: { fontSize: 18, color: colors.text },
-  place: { fontSize: 14, color: colors.muted },
-  facts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  fact: {
-    fontSize: 13,
-    color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
-  },
-  section: { fontSize: 17, fontWeight: '700', color: colors.text, marginTop: 18 },
-  description: { fontSize: 15, lineHeight: 22, color: colors.text },
+  factValue: { fontSize: 14, fontWeight: '700', color: colors.text },
+  factLabel: { fontSize: 12, color: colors.muted },
+  section: { fontSize: 17, fontWeight: '800', color: colors.text, marginTop: 20 },
+  description: { fontSize: 15, lineHeight: 23, color: '#3A4651' },
   seller: {
-    borderWidth: 1,
-    borderColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.surface,
     borderRadius: radius.card,
     padding: 14,
-    gap: 2,
+    ...shadow(1),
   },
-  sellerName: { fontSize: 15, fontWeight: '600', color: colors.text },
-  sellerPhone: { fontSize: 14, color: colors.muted },
+  sellerName: { fontSize: 16, fontWeight: '700', color: colors.text },
+  sellerMeta: { fontSize: 13, color: colors.muted, marginTop: 2 },
   bar: {
     flexDirection: 'row',
     gap: 12,
     paddingHorizontal: 20,
     paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    ...shadow(3),
   },
-  barButton: {
-    flex: 1,
-    height: 50,
-    borderRadius: radius.input,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  barOutline: { borderWidth: 1.5, borderColor: colors.primary },
-  barOutlineText: { color: colors.primary, fontSize: 16, fontWeight: '600' },
-  barPrimary: { backgroundColor: colors.primary },
-  barPrimaryText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  disabled: { opacity: 0.5 },
 });

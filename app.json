@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "services-immobilier-rn",
+    "name": "Services Immobilier",
     "slug": "services-immobilier-rn",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -17,10 +17,27 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "INTERNET",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 120,
+          "resizeMode": "contain",
+          "backgroundColor": "#0B6B5B"
+        }
+      ],
+      "@maplibre/maplibre-react-native"
+    ]
   }
 }

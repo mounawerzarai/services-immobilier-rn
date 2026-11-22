@@ -1,12 +1,16 @@
 
-import MyListingsScreen from '../screens/MyListingsScreen';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 
 import { colors } from '../theme';
 import { RootStackParamList, TabParamList } from './types';
+import { watchUnreadCount } from '../data/services/messaging';
+import MessageAlerts from '../features/notifications/MessageAlerts';
+import OfflineBanner from '../features/offline/OfflineBanner';
 
 import HomeScreen from '../screens/HomeScreen';
 import MapScreen from '../screens/MapScreen';
@@ -17,6 +21,9 @@ import LoginScreen from '../screens/LoginScreen';
 import PublishScreen from '../screens/PublishScreen';
 import ListingDetailScreen from '../screens/ListingDetailScreen';
 import ChatScreen from '../screens/ChatScreen';
+import MyListingsScreen from '../screens/MyListingsScreen';
+
+const navRef = createNavigationContainerRef<RootStackParamList>();
 
 const Tab = createBottomTabNavigator<TabParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -30,18 +37,30 @@ const icons: Record<keyof TabParamList, [string, string]> = {
 };
 
 function Tabs() {
+  // Badge de l'onglet Messages : nombre de conversations non lues.
+  const [unread, setUnread] = useState(0);
+  useEffect(() => watchUnreadCount(setUnread), []);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.muted,
+        tabBarInactiveTintColor: colors.subtle,
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          height: Platform.OS === 'ios' ? 88 : 70,
+          paddingTop: 6,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+        },
         tabBarIcon: ({ focused, color, size }) => {
           const [on, off] = icons[route.name];
           return (
             <Ionicons
               name={(focused ? on : off) as any}
-              size={size}
+              size={size - 1}
               color={color}
             />
           );
@@ -51,7 +70,14 @@ function Tabs() {
       <Tab.Screen name="Accueil" component={HomeScreen} />
       <Tab.Screen name="Carte" component={MapScreen} />
       <Tab.Screen name="Favoris" component={FavoritesScreen} />
-      <Tab.Screen name="Messages" component={MessagesScreen} />
+      <Tab.Screen
+        name="Messages"
+        component={MessagesScreen}
+        options={{
+          tabBarBadge: unread > 0 ? (unread > 9 ? '9+' : unread) : undefined,
+          tabBarBadgeStyle: { backgroundColor: colors.danger, fontSize: 11, fontWeight: '700' },
+        }}
+      />
       <Tab.Screen name="Profil" component={ProfileScreen} />
     </Tab.Navigator>
   );
@@ -62,14 +88,26 @@ const navTheme = {
   colors: {
     ...DefaultTheme.colors,
     primary: colors.primary,
-    background: colors.background,
+    background: colors.canvas,
+    card: colors.surface,
+    text: colors.text,
+    border: colors.border,
   },
+};
+
+const stackOptions = {
+  headerShadowVisible: false,
+  headerTintColor: colors.text,
+  headerTitleStyle: { fontWeight: '700' as const },
+  headerStyle: { backgroundColor: colors.canvas },
+  headerBackTitle: 'Retour',
 };
 
 export default function RootNavigator() {
   return (
-    <NavigationContainer theme={navTheme}>
-      <Stack.Navigator>
+    <>
+    <NavigationContainer theme={navTheme} ref={navRef}>
+      <Stack.Navigator screenOptions={stackOptions}>
         <Stack.Screen
           name="Tabs"
           component={Tabs}
@@ -93,7 +131,7 @@ export default function RootNavigator() {
         <Stack.Screen
           name="ListingDetail"
           component={ListingDetailScreen}
-          options={{ title: 'Détail' }}
+          options={{ title: '', headerTransparent: true, headerTintColor: '#fff' }}
         />
 
         <Stack.Screen
@@ -103,5 +141,8 @@ export default function RootNavigator() {
         />
       </Stack.Navigator>
     </NavigationContainer>
+    <OfflineBanner />
+    <MessageAlerts navRef={navRef} />
+    </>
   );
 }
