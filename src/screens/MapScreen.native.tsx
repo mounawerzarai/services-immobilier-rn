@@ -1,49 +1,43 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import MapLibreGL from '@maplibre/maplibre-react-native';
+import MapView, { Circle, Marker, Region } from 'react-native-maps';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconButton } from '../components/ui';
 import { colors } from '../theme';
 import { Listing } from '../data/models/Listing';
-import { LatLng, circlePolygon, distanceKm, shortPrice, zoomForRadius } from '../features/map/geo';
+import { LatLng, distanceKm, shortPrice } from '../features/map/geo';
 import { useMapListings, useNearby } from '../features/map/useNearby';
 import { ListingPreview, NearbyPanel, NearbyResults } from '../features/map/NearbyControls';
 
-MapLibreGL.setAccessToken(null);
+// Carte native avec react-native-maps (Apple Plans sur iOS, Google Maps sur Android).
+// Ce module est inclus dans Expo Go, contrairement à MapLibre qui faisait planter
+// l'appli au démarrage (« native module that doesn't exist »).
 
-const OSM_STYLE = JSON.stringify({
-  version: 8,
-  sources: {
-    osm: {
-      type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors',
-    },
-  },
-  layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
-});
+const TUNIS: Region = { latitude: 36.8065, longitude: 10.1815, latitudeDelta: 0.12, longitudeDelta: 0.12 };
 
-const TUNIS: [number, number] = [10.1815, 36.8065];
+/** Région qui montre tout le cercle de recherche (1° de latitude ≈ 111 km). */
+const regionFor = (p: LatLng, radiusKm?: number): Region => {
+  const delta = radiusKm ? (radiusKm * 2.6) / 111 : 0.05;
+  return { latitude: p.latitude, longitude: p.longitude, latitudeDelta: delta, longitudeDelta: delta };
+};
 
 export default function MapScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const cameraRef = useRef<any>(null);
+  const mapRef = useRef<MapView>(null);
   const { listings, error } = useMapListings();
   const nearby = useNearby(listings);
   const [selected, setSelected] = useState<Listing | null>(null);
 
   const { me, active, radiusKm } = nearby;
 
-  const moveTo = (center: [number, number], zoom: number) =>
-    cameraRef.current?.setCamera({ centerCoordinate: center, zoomLevel: zoom, animationDuration: 600 });
+  const moveTo = (region: Region) => mapRef.current?.animateToRegion(region, 600);
 
   // Centre la carte sur l'utilisateur et adapte le zoom au rayon de recherche.
   useEffect(() => {
-    if (me) moveTo([me.longitude, me.latitude], active ? zoomForRadius(radiusKm) : 13);
+    if (me) moveTo(regionFor(me, active ? radiusKm : undefined));
   }, [me, active, radiusKm]);
 
   if (error) {
@@ -63,40 +57,48 @@ export default function MapScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <MapLibreGL.MapView style={{ flex: 1 }} mapStyle={OSM_STYLE} onPress={() => setSelected(null)}>
-        <MapLibreGL.Camera ref={cameraRef} zoomLevel={12} centerCoordinate={TUNIS} />
-
+      <MapView
+        ref={mapRef}
+        style={{ flex: 1 }}
+        initialRegion={TUNIS}
+        showsCompass={false}
+        toolbarEnabled={false}
+        onPress={() => setSelected(null)}
+      >
         {me && active ? (
-          <MapLibreGL.ShapeSource id="radius" shape={circlePolygon(me, radiusKm)}>
-            <MapLibreGL.FillLayer id="radius-fill" style={{ fillColor: colors.primary, fillOpacity: 0.08 }} />
-            <MapLibreGL.LineLayer id="radius-line" style={{ lineColor: colors.primary, lineWidth: 2 }} />
-          </MapLibreGL.ShapeSource>
+          <Circle
+            center={me}
+            radius={radiusKm * 1000}
+            strokeColor={colors.primary}
+            strokeWidth={2}
+            fillColor="rgba(11, 107, 91, 0.08)"
+          />
         ) : null}
 
         {me ? (
-          <MapLibreGL.PointAnnotation id="me" coordinate={[me.longitude, me.latitude]}>
+          <Marker coordinate={me} anchor={{ x: 0.5, y: 0.5 }} title="Vous êtes ici">
             <View style={styles.me} />
-          </MapLibreGL.PointAnnotation>
+          </Marker>
         ) : null}
 
         {shown.map((l) => {
           const on = selected?.id === l.id;
           return (
-            <MapLibreGL.PointAnnotation
-              key={l.id}
-              id={l.id}
-              coordinate={[l.longitude!, l.latitude!]}
-              onSelected={() => setSelected(l)}
+            <Marker
+              key={`${l.id}-${on ? 1 : 0}-${nearIds.has(l.id) ? 1 : 0}`}
+              coordinate={{ latitude: l.latitude!, longitude: l.longitude! }}
+              stopPropagation
+              onPress={() => setSelected(l)}
             >
               <View style={[styles.pin, nearIds.has(l.id) && styles.pinNear, on && styles.pinActive]}>
                 <Text style={[styles.pinText, on && { color: '#fff' }]}>
                   {shortPrice(l.price, l.transactionType)}
                 </Text>
               </View>
-            </MapLibreGL.PointAnnotation>
+            </Marker>
           );
         })}
-      </MapLibreGL.MapView>
+      </MapView>
 
       <NearbyPanel
         active={active}
@@ -117,7 +119,7 @@ export default function MapScreen() {
             icon="locate"
             label="Me localiser"
             color={colors.primary}
-            onPress={() => moveTo([me.longitude, me.latitude], active ? zoomForRadius(radiusKm) : 13)}
+            onPress={() => moveTo(regionFor(me, active ? radiusKm : undefined))}
           />
         </View>
       ) : null}
@@ -139,7 +141,7 @@ export default function MapScreen() {
           onOpen={(id) => navigation.navigate('ListingDetail', { id })}
           onFocus={(l) => {
             setSelected(l);
-            moveTo([l.longitude!, l.latitude!], 15);
+            moveTo(regionFor({ latitude: l.latitude!, longitude: l.longitude! }, 0.4));
           }}
         />
       ) : null}
