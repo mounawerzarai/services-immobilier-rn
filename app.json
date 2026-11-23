@@ -37,7 +37,12 @@
           "backgroundColor": "#0B6B5B"
         }
       ],
-      "@maplibre/maplibre-react-native"
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Votre position sert à afficher les annonces autour de vous."
+        }
+      ]
     ]
   }
 }
