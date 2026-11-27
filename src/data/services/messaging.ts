@@ -18,10 +18,7 @@ import { auth, db } from '../../core/firebase';
 import { Conversation, Message } from '../models/Conversation';
 import { getUser } from './users';
 
-// Messagerie (Firestore) :
-//   conversations/{id}                 participants, annonce, dernier message, lectures
-//   conversations/{id}/messages/{id}   senderId, text, sentAt
-// Les règles sont dans firebase/firestore.rules.
+// Messagerie
 
 export const toMillis = (v: unknown): number | undefined =>
   v instanceof Timestamp ? v.toMillis() : typeof v === 'number' ? v : undefined;
