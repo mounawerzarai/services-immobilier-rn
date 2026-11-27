@@ -11,7 +11,7 @@ import AuthScreen from './src/features/auth/AuthScreen';
 import SplashScreen from './src/components/SplashScreen';
 import { colors } from './src/theme';
 
-// Garde le splash natif (même fond vert, même logo) jusqu'au premier rendu du splash animé.
+// Garde le splash natif (même fond , même logo) jusqu'au premier rendu du splash animé.
 NativeSplash.preventAutoHideAsync().catch(() => {});
 
 export default function App() {
